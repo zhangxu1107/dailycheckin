@@ -80,6 +80,36 @@ def message2bark(bark_url: str, content):
     return
 
 
+def message2qywxrobot(qywx_key, content):
+    print("企业微信群机器人推送开始")
+    requests.post(
+        url=f"https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key={qywx_key}",
+        data=json.dumps({"msgtype": "text", "text": {"content": content}}),
+    )
+    return
+
+
+def message2qywxapp(qywx_corpid, qywx_agentid, qywx_corpsecret, qywx_touser, content):
+    print("企业微信应用消息推送开始")
+    res = requests.get(
+        f"https://qyapi.weixin.qq.com/cgi-bin/gettoken?corpid={qywx_corpid}&corpsecret={qywx_corpsecret}"
+    )
+    token = res.json().get("access_token", False)
+    data = {
+        "touser": qywx_touser,
+        "agentid": qywx_agentid,
+        "msgtype": "textcard",
+        "textcard": {
+            "title": "签到通知",
+            "description": content,
+            "url": "https://github.com/Sitoi/dailycheckin",
+            "btntxt": "开源项目"
+        }
+    }
+    requests.post(url=f"https://qyapi.weixin.qq.com/cgi-bin/message/send?access_token={token}", data=json.dumps(data))
+    return
+
+
 def important_notice():
     datas = requests.get(url="https://api.github.com/repos/Sitoi/dailycheckin/issues?state=open&labels=通知").json()
     if datas:
@@ -106,6 +136,11 @@ def push_message(content_list: list, notice_info: dict):
     coolpushqq = notice_info.get("coolpushqq")
     coolpushwx = notice_info.get("coolpushwx")
     coolpushemail = notice_info.get("coolpushemail")
+    qywx_key = notice_info.get("qywx_key")
+    qywx_corpid = notice_info.get("qywx_corpid")
+    qywx_agentid = notice_info.get("qywx_agentid")
+    qywx_corpsecret = notice_info.get("qywx_corpsecret")
+    qywx_touser = notice_info.get("qywx_touser")
     content_str = "\n-----------------------------\n\n".join(content_list)
     message_list = [content_str]
     try:
@@ -115,31 +150,68 @@ def push_message(content_list: list, notice_info: dict):
             content_list.append(notice)
     except Exception as e:
         print("获取重要通知失败:", e)
-    for message in message_list:
-        if dingtalk_access_token and dingtalk_secret:
-            message2dingtalk(
-                dingtalk_secret=dingtalk_secret, dingtalk_access_token=dingtalk_access_token, content=message
-            )
-        if sckey:
-            message2server(sckey=sckey, content=message)
-        if sendkey:
-            message2server_turbo(sendkey=sendkey, content=message)
-        if tg_user_id and tg_bot_token:
-            message2telegram(tg_user_id=tg_user_id, tg_bot_token=tg_bot_token, content=message)
-        if bark_url:
-            message2bark(bark_url=bark_url, content=message)
     for content in content_list:
         if qmsg_key:
-            message2qmsg(qmsg_key=qmsg_key, content=content)
+            try:
+                message2qmsg(qmsg_key=qmsg_key, content=content)
+            except Exception as e:
+                print("qmsg 推送失败", e)
         if coolpushskey:
-            message2coolpush(
-                coolpushskey=coolpushskey,
-                content=content,
-                coolpushqq=coolpushqq,
-                coolpushwx=coolpushwx,
-                coolpushemail=coolpushemail,
-            )
+            try:
+                message2coolpush(
+                    coolpushskey=coolpushskey,
+                    content=content,
+                    coolpushqq=coolpushqq,
+                    coolpushwx=coolpushwx,
+                    coolpushemail=coolpushemail,
+                )
+            except Exception as e:
+                print("coolpush 推送失败", e)
+        if qywx_touser and qywx_corpid and qywx_corpsecret and qywx_agentid:
+            try:
+                message2qywxapp(
+                    qywx_corpid=qywx_corpid,
+                    qywx_agentid=qywx_agentid,
+                    qywx_corpsecret=qywx_corpsecret,
+                    qywx_touser=qywx_touser,
+                    content=content,
+                )
+            except Exception as e:
+                print("企业微信应用消息推送失败", e)
+    for message in message_list:
+        if dingtalk_access_token and dingtalk_secret:
+            try:
+                message2dingtalk(
+                    dingtalk_secret=dingtalk_secret, dingtalk_access_token=dingtalk_access_token, content=message
+                )
+            except Exception as e:
+                print("钉钉推送失败", e)
+        if sckey:
+            try:
+                message2server(sckey=sckey, content=message)
+            except Exception as e:
+                print("Server 推送失败", e)
+        if sendkey:
+            try:
+                message2server_turbo(sendkey=sendkey, content=message)
+            except Exception as e:
+                print("Server Turbo 推送失败", e)
+        if bark_url:
+            try:
+                message2bark(bark_url=bark_url, content=message)
+            except Exception as e:
+                print("Bark 推送失败", e)
+        if qywx_key:
+            try:
+                message2qywxrobot(qywx_key=qywx_key, content=message)
+            except Exception as e:
+                print("企业微信群机器人推送失败", e)
+        if tg_user_id and tg_bot_token:
+            try:
+                message2telegram(tg_user_id=tg_user_id, tg_bot_token=tg_bot_token, content=message)
+            except Exception as e:
+                print("Telegram 推送失败", e)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     print(important_notice())
