@@ -5,8 +5,8 @@ import sys
 import time
 from datetime import datetime, timedelta
 
+from config import checkin_map, get_checkin_info, get_notice_info, env2config
 from motto import Motto
-from utils.config import checkin_map, get_checkin_info, get_notice_info
 from utils.message import push_message
 
 
@@ -15,22 +15,20 @@ def main_handler(event, context):
     utc_time = datetime.utcnow() + timedelta(hours=8)
     if "IS_GITHUB_ACTION" in os.environ:
         message = os.getenv("ONLY_MESSAGE")
-        motto = os.getenv("MOTTO")
-        notice_info = get_notice_info(data=None)
-        check_info = get_checkin_info(data=None)
+        data = env2config()
     else:
         if isinstance(event, dict):
             message = event.get("Message")
         else:
             message = None
-        try:
-            with open(os.path.join(os.path.dirname(__file__), "config/config.json"), "r", encoding="utf-8") as f:
-                data = json.loads(f.read())
-            motto = data.get("MOTTO")
-            notice_info = get_notice_info(data=data)
-            check_info = get_checkin_info(data=data)
-        except Exception as e:
-            raise e
+        with open(os.path.join(os.path.dirname(__file__), "config/config.json"), "r", encoding="utf-8") as f:
+            data = json.loads(f.read())
+    try:
+        motto = data.get("MOTTO")
+        notice_info = get_notice_info(data=data)
+        check_info = get_checkin_info(data=data)
+    except Exception as e:
+        raise e
     content_list = [f"当前时间: {utc_time}"]
     if message == "xmly":
         if check_info.get("xmly_cookie_list"):
@@ -41,6 +39,7 @@ def main_handler(event, context):
                         msg = check_func(check_item).main()
                         content_list.append(f"【{check_name}】\n{msg}")
                     except Exception as e:
+                        content_list.append(f"【{check_name}】\n{e}")
                         print(check_name, e)
                 else:
                     print(f"检测【{check_name}】脚本到配置文件包含模板配置,进行跳过")
@@ -56,6 +55,7 @@ def main_handler(event, context):
                                 msg = check_func(check_item).main()
                                 content_list.append(f"【{check_name}】\n{msg}")
                             except Exception as e:
+                                content_list.append(f"【{check_name}】\n{e}")
                                 print(check_name, e)
                         else:
                             print(f"检测【{check_name}】脚本到配置文件包含模板配置,进行跳过")
@@ -68,7 +68,7 @@ def main_handler(event, context):
                 print(e)
                 msg_list = []
             content_list += msg_list
-    content_list.append(f"本次任务使用时间: {time.time() - start_time} 秒")
+    content_list.append(f"任务使用时间: {int(time.time() - start_time)} 秒")
     if message == "xmly":
         if utc_time.hour in [9, 18] and utc_time.minute == 0:
             flag = True
